@@ -5,8 +5,8 @@ EXECUTABLE=ar_c
 
 all: $(EXECUTABLE)
 
-$(EXECUTABLE): 
-	$(CC) $(CFLAGS) $(SOURCES) -o $@
+$(EXECUTABLE): $(SOURCES:.c=.o)
+	$(CC) -o $@ $^
 
 clean:
-	rm -rf $(EXECUTABLE)
+	rm -rf $(EXECUTABLE) *.o
