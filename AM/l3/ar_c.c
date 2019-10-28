@@ -65,7 +65,7 @@ int main(int argc, char const *argv[])
 
 	printf("Encoded file size: %d bit\n", encoded_bits);
 
-	printf("Compression: %f\n", symbols_count*8/encoded_bits);
+	printf("Compression: %f\n", (double) symbols_count*8/encoded_bits);
 
 	free(codes);
 	free(decoded_text);
