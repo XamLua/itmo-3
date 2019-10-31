@@ -7,7 +7,7 @@ window.onload = function () {
         settingsMenu: false,
         expressions: false
     });
-    calculator.setExpression({id: 'graph1', latex: '1.62*x^3 - 8.15*x^2 + 4.39*x + 4.29'});
+    calculator.setExpression({id: 'graph1', latex: '2*x+1/x'});
     calculator.setExpression({id: 'leftBorder'});
     calculator.setExpression({id: 'rightBorder'})
 };

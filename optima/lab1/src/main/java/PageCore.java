@@ -43,8 +43,8 @@ public class PageCore extends Application {
         TextField approxTextField = new TextField();
         equationTextField.setMinWidth(250);
         approxTextField.setMinWidth(20);
-        equationTextField.setText("1.62*x^3 - 8.15*x^2 + 4.39*x + 4.29");
-        approxTextField.setText("0.000001");
+        equationTextField.setText("2*x+1/x");
+        approxTextField.setText("0.1");
         equationRoot.getChildren().addAll(equationLabel, equationTextField, approxLabel, approxTextField);
 
         HBox leftCheckRoot = new HBox();

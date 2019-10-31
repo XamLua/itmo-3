@@ -6,6 +6,8 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
+import static java.lang.Double.isNaN;
+
 public class ParabolaSearch {
 
     private  static  double golrat = (1+Math.sqrt(5))/2;
@@ -16,7 +18,7 @@ public class ParabolaSearch {
         ParabolaSearch.eps = eps;
     }
 
-    public static String findMin(double a, double b, String function) {
+    public static String findMin(double x1, double x3, String function) {
 
         DecimalFormatSymbols dfs = new DecimalFormatSymbols(Locale.getDefault());
         dfs.setDecimalSeparator('.');
@@ -27,47 +29,62 @@ public class ParabolaSearch {
         Argument x = new Argument("x = 0");
         Expression e = new Expression("F(x)", f, x);
 
-        x.setArgumentValue(x1);
-        double y1 = e.calculate();
-
-        double x2 = (x1+x3)/2;
-
-        x.setArgumentValue(x2);
-        double y2 = e.calculate();
-
-        x.setArgumentValue(x3);
-        double y3 = e.calculate();
+        double x2 = x3 - (x3-x1)/golrat;
 
         if (x1 > x3)
             return "Некорректно заданы границы.";
 
-        double delta = (x2-x1)*(x3-x1)*(x3-x2);
-
-        double A, B, C, xmin;
+        double A, B, C, xmin = x2, ymin, y1, y2, y3, delta, prevxmin;
 
         int iter = 0;
 
         do {
-            A = 1/delta*((x3-x2)*y1-(x3-x1)*y2+(x2-x1)*y3);
-            B = 1/delta*(-(x3*x3-x2*x2)*y1+(x3*x3-x1*x1)*y2-(x2*x2-x1*x1)*y3);
-            C = 1/delta*(x2*x3*(x3-x2)*y1-x1*x3*(x3-x1)*y2+x1*x2*(x2-x1)*y3);
+            prevxmin = xmin;
 
             x.setArgumentValue(x1);
-            fx1 = e.calculate();
+            y1 = e.calculate();
+
+            while(isNaN(y1)){
+                x1+=eps;
+                x.setArgumentValue(x1);
+                y1 = e.calculate();
+            }
 
             x.setArgumentValue(x2);
-            fx2 = e.calculate();
-            System.out.printf("fx1 = %f fx2 = %f\n", fx1, fx2);
-            if (fx1 >= fx2)
-                a = x1;
-            else
-                b = x2;
+            y2 = e.calculate();
+
+            x.setArgumentValue(x3);
+            y3 = e.calculate();
+
+            delta = (x2-x1)*(x3-x1)*(x3-x2);
+            A = ((x3-x2)*y1-(x3-x1)*y2+(x2-x1)*y3)/delta;
+            B = (-(x3*x3-x2*x2)*y1+(x3*x3-x1*x1)*y2-(x2*x2-x1*x1)*y3)/delta;
+            C = (x2*x3*(x3-x2)*y1-x1*x3*(x3-x1)*y2+x1*x2*(x2-x1)*y3)/delta;
+
+            xmin = -B/(2*A);
+            System.out.printf("x1 = %f, x2 = %f, x3 = %f, xmin = %f\n", x1, x2, x3, xmin);
+            x.setArgumentValue(xmin);
+            ymin = e.calculate();
+
+            if (xmin >= x2 && ymin < y2){
+                x1 = x2;
+                x2 = xmin;
+            }
+            else if (xmin >= x2 && ymin >= y2){
+                x3 = xmin;
+            }
+            else if (xmin < x2 && ymin < y2){
+                x3 = x2;
+                x2 = xmin;
+            }
+            else if (xmin < x2 && ymin >= y2){
+                x1 = xmin;
+            }
+
             iter++;
         }
-
-        while (Math.abs(a - b) > eps);
-
-        return "x = " + d.format((a+b)/2) + " i = " + iter;
+        while (Math.abs(xmin - prevxmin) > eps);
+        return "x = " + d.format(xmin) + " i = " + iter;
     }
 
 }
