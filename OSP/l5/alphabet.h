@@ -8,6 +8,22 @@
 
 #define PERMISSIONS 0666
 
+#include <pthread.h>
+
+struct intervals
+{
+	unsigned long time_p;
+	unsigned long time_c;
+	unsigned long time_o;
+	unsigned long time_count;
+};
+
+struct m_data
+{
+	void* *lock;
+	unsigned long interval;
+};
+
 void handle_sigint(int sig);
 
 void crit_err(int errnum);
@@ -27,5 +43,19 @@ void use_s5_semaphore();
 void *invert_case_s5();
 
 void *invert_order_s5();
+
+void use_mutex(struct intervals *irvs);
+
+void *invert_case_mutex(void *s);
+
+void *invert_order_mutex(void *s);
+
+void use_rwlock(struct intervals *irvs);
+
+void *invert_case_rwlock(void *s);
+
+void *invert_order_rwlock(void *s);
+
+void *count_upcl(void *s);
 
 #endif

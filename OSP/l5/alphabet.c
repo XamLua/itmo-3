@@ -15,14 +15,12 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include <pthread.h>
-
 
 static int done = 0;
 
 static char* alphabet;
 
-int main(int argc, char const *argv[])
+int main(int argc, char * const *argv)
 {
 	signal(SIGINT, handle_sigint);
 
@@ -35,7 +33,7 @@ int main(int argc, char const *argv[])
 		use_unnamed_semaphore();
 	else
 	{
-		int mode = (int) *argv[1];
+		int mode = getopt(argc, argv, "usm");
 
 		switch(mode)
 		{
@@ -45,17 +43,139 @@ int main(int argc, char const *argv[])
 
 			case 's':
 				use_s5_semaphore();
+				break;
 
 			case 'm':
+			{
+				if (argc != 5)
+					printf("Wrong amount of arguments: %d. Expected - 3\n", argc - 2);
+
+				char* end;
+				unsigned long time_p = strtoul(argv[2], &end, 10);
+				unsigned long time_c = strtoul(argv[3], &end, 10);
+				unsigned long time_o = strtoul(argv[4], &end, 10);
+
+				if (time_p == 0 || time_c == 0 || time_o == 0)
+				{
+					printf("Error: arg is not a acceptable number\n");
+					break;
+				}
+
+				struct intervals irvs = {.time_p = time_p, .time_c = time_c, .time_o = time_o};
+				use_mutex(&irvs);
 				break;
+			}
+			case 'l':
+			{
+				//O_O
+			}
 
 			default:
 				printf("Mode not supported\n");
-				return -1;
 		}
 	}
 	free(alphabet);
 	return 0;
+}
+
+void use_mutex(struct intervals *irvs)
+{
+	pthread_t invert_case_thread, invert_order_thread;
+
+	//Allocate memory for mutex and other data
+	pthread_mutex_t *mutex = malloc(sizeof(pthread_mutex_t));
+	struct m_data *data_c = malloc(sizeof(struct m_data));
+	struct m_data *data_o = malloc(sizeof(struct m_data));
+
+	//Initialize mutex
+	int check;
+	check = pthread_mutex_init(mutex, NULL);
+
+	//Initialize data
+	data_c->lock = (void*) mutex;
+	data_o->lock = (void*) mutex;
+	data_c->interval = irvs->time_c;
+	data_o->interval = irvs->time_o;
+
+	if (check < 0)
+		crit_err(check);
+
+	//Lock mutex
+	pthread_mutex_lock(mutex);
+
+	//Create threads
+	if (pthread_create(&invert_case_thread, NULL, invert_case_mutex, (void *) data_c) < 0)
+		crit_err(errno);
+
+	if (pthread_create(&invert_order_thread, NULL, invert_order_mutex, (void *) data_o) < 0)
+		crit_err(errno);
+
+	//Unlock mutex
+	pthread_mutex_unlock(mutex);
+
+	//Main cycle
+	while (!done)
+	{
+		//Lock mutex
+		pthread_mutex_lock(mutex);
+
+		//Print alphabet
+		printf("%.26s\n", alphabet);
+		
+		//Unlock mutex
+		pthread_mutex_unlock(mutex);
+
+		usleep(irvs->time_p);
+	}
+
+	//Finish all child processes
+	pthread_join(invert_case_thread, NULL);
+	pthread_join(invert_order_thread, NULL);
+
+	//Free resources
+	free(mutex);
+	free(data_c);
+	free(data_o);
+}
+
+void *invert_case_mutex(void *s)
+{
+	struct m_data *data = (struct m_data*) s;
+
+	while (!done)
+	{
+		//Lock
+		pthread_mutex_lock((pthread_mutex_t*) data->lock);
+
+		invert_case(alphabet);
+
+		//Unlock
+		pthread_mutex_unlock((pthread_mutex_t*) data->lock);
+
+		usleep(data->interval);
+	}
+
+	return NULL;
+}
+
+void *invert_order_mutex(void *s)
+{
+	struct m_data *data = (struct m_data*) s;
+
+	while (!done)
+	{
+		//Lock
+		pthread_mutex_lock((pthread_mutex_t*) data->lock);
+
+		invert_order(alphabet);
+
+		//Unlock
+		pthread_mutex_unlock((pthread_mutex_t*) data->lock);
+
+		usleep(data->interval);
+	}
+
+	return NULL;
 }
 
 void use_s5_semaphore()
@@ -69,7 +189,6 @@ void use_s5_semaphore()
 		crit_err(errno);
 	if ((semid_o = semget(SEM_ID_O, 2, PERMISSIONS | IPC_CREAT)) < 0)
 		crit_err(errno);
-	printf("semid_c = %d, semid_o = %d\n", semid_c, semid_o);
 
 	//Init semaphores values (blocked)
 	semctl(semid_c, 0, SETALL, 0);
@@ -157,7 +276,6 @@ void *invert_case_s5()
 	if ( (semid_c = semget(SEM_ID_C, 2, PERMISSIONS)) < 0)
 		crit_err(errno);
 
-	printf("from case SEM_ID_C = %d, semid_c = %d\n", SEM_ID_C, semid_c);
 	//Prepare buffer for operations
 	struct sembuf sembuf_c = {.sem_num = 0, .sem_op = 0, .sem_flg = 0};
 
@@ -191,7 +309,6 @@ void *invert_order_s5()
 	if ( (semid_o = semget(SEM_ID_O, 2, PERMISSIONS)) < 0)
 		crit_err(errno);
 
-	printf("from order !SEM_ID_O! = %d, semid_o = %d\n", SEM_ID_O, semid_o);
 	//Prepare buffer for operations
 	struct sembuf sembuf_o = {.sem_num = 0, .sem_op = 0, .sem_flg = 0};
 
