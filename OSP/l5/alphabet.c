@@ -33,7 +33,7 @@ int main(int argc, char * const *argv)
 		use_unnamed_semaphore();
 	else
 	{
-		int mode = getopt(argc, argv, "usm");
+		int mode = getopt(argc, argv, "usml");
 
 		switch(mode)
 		{
@@ -48,7 +48,10 @@ int main(int argc, char * const *argv)
 			case 'm':
 			{
 				if (argc != 5)
+				{
 					printf("Wrong amount of arguments: %d. Expected - 3\n", argc - 2);
+					break;
+				}
 
 				char* end;
 				unsigned long time_p = strtoul(argv[2], &end, 10);
@@ -67,7 +70,28 @@ int main(int argc, char * const *argv)
 			}
 			case 'l':
 			{
-				//O_O
+				if (argc != 6)
+				{
+					printf("Wrong amount of arguments: %d. Expected - 4\n", argc - 2);
+					break;
+				}
+
+				char* end;
+				unsigned long time_p = strtoul(argv[2], &end, 10);
+				unsigned long time_c = strtoul(argv[3], &end, 10);
+				unsigned long time_o = strtoul(argv[4], &end, 10);
+				unsigned long time_count = strtoul(argv[5], &end, 10);
+
+				if (time_p == 0 || time_c == 0 || time_o == 0 || time_count == 0)
+				{
+					printf("Error: arg is not a acceptable number\n");
+					break;
+				}
+
+				struct intervals irvs = {.time_p = time_p, .time_c = time_c, 
+										 .time_o = time_o, .time_count = time_count};
+				use_rwlock(&irvs);
+				break;
 			}
 
 			default:
@@ -77,6 +101,142 @@ int main(int argc, char * const *argv)
 	free(alphabet);
 	return 0;
 }
+
+void use_rwlock(struct intervals *irvs)
+{
+	pthread_t invert_case_thread, invert_order_thread, count_upcl_thread;
+
+	//Allocate memory for mutex and other data
+	pthread_rwlock_t *rwlock = malloc(sizeof(pthread_rwlock_t));
+	struct m_data *data_c = malloc(sizeof(struct m_data));
+	struct m_data *data_o = malloc(sizeof(struct m_data));
+	struct m_data *data_count = malloc(sizeof(struct m_data));
+
+	//Initialize mutex
+	int check;
+	check = pthread_rwlock_init(rwlock, NULL);
+	if (check < 0)
+		crit_err(check);
+	
+	//Initialize data
+	data_c->lock = (void*) rwlock;
+	data_o->lock = (void*) rwlock;
+	data_count->lock = (void*) rwlock;
+	data_c->interval = irvs->time_c;
+	data_o->interval = irvs->time_o;
+	data_count->interval = irvs->time_count;
+
+	//Lock rwlock
+	pthread_rwlock_wrlock(rwlock);
+
+	//Create threads
+	if (pthread_create(&invert_case_thread, NULL, invert_case_rwlock, (void *) data_c) < 0)
+		crit_err(errno);
+
+	if (pthread_create(&invert_order_thread, NULL, invert_order_rwlock, (void *) data_o) < 0)
+		crit_err(errno);
+
+	if (pthread_create(&count_upcl_thread, NULL, count_upcl, (void *) data_count) < 0)
+		crit_err(errno);
+
+	//Unlock rwlock
+	pthread_rwlock_unlock(rwlock);
+
+	//Main cycle
+	while (!done)
+	{
+		//Lock mutex
+		pthread_rwlock_rdlock(rwlock);
+
+		//Print alphabet
+		printf("%.26s\n", alphabet);
+		
+		//Unlock mutex
+		pthread_rwlock_unlock(rwlock);
+
+		usleep(irvs->time_p);
+	}
+
+	//Finish all child processes
+	pthread_join(invert_case_thread, NULL);
+	pthread_join(invert_order_thread, NULL);
+	pthread_join(count_upcl_thread, NULL);
+
+	//Free resources
+	free(rwlock);
+	free(data_c);
+	free(data_o);
+	free(data_count);
+}
+
+void *invert_case_rwlock(void *s)
+{
+	struct m_data *data = (struct m_data*) s;
+
+	while (!done)
+	{
+		//Lock
+		pthread_rwlock_wrlock((pthread_rwlock_t*) data->lock);
+
+		invert_case(alphabet);
+
+		//Unlock
+		pthread_rwlock_unlock((pthread_rwlock_t*) data->lock);
+
+		usleep(data->interval);
+	}
+
+	return NULL;
+}
+
+void *invert_order_rwlock(void *s)
+{
+	struct m_data *data = (struct m_data*) s;
+
+	while (!done)
+	{
+		//Lock
+		pthread_rwlock_wrlock((pthread_rwlock_t*) data->lock);
+
+		invert_order(alphabet);
+
+		//Unlock
+		pthread_rwlock_unlock((pthread_rwlock_t*) data->lock);
+
+		usleep(data->interval);
+	}
+
+	return NULL;
+}
+
+void *count_upcl(void *s)
+{
+	struct m_data *data = (struct m_data*) s;
+
+	int count = 0;
+
+	while (!done)
+	{
+		//Lock
+		pthread_rwlock_rdlock((pthread_rwlock_t*) data->lock);
+
+		for (int i = 0; i < BUF_SIZE; ++i)
+			if (alphabet[i] < 91)
+				count++;
+
+		printf("%d\n", count);
+
+		count = 0;
+
+		//Unlock
+		pthread_rwlock_unlock((pthread_rwlock_t*) data->lock);
+
+		usleep(data->interval);
+	}
+
+	return NULL;
+}
+
 
 void use_mutex(struct intervals *irvs)
 {
@@ -90,15 +250,14 @@ void use_mutex(struct intervals *irvs)
 	//Initialize mutex
 	int check;
 	check = pthread_mutex_init(mutex, NULL);
+	if (check < 0)
+		crit_err(check);
 
 	//Initialize data
 	data_c->lock = (void*) mutex;
 	data_o->lock = (void*) mutex;
 	data_c->interval = irvs->time_c;
 	data_o->interval = irvs->time_o;
-
-	if (check < 0)
-		crit_err(check);
 
 	//Lock mutex
 	pthread_mutex_lock(mutex);
