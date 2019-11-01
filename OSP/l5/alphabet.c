@@ -106,13 +106,13 @@ void use_rwlock(struct intervals *irvs)
 {
 	pthread_t invert_case_thread, invert_order_thread, count_upcl_thread;
 
-	//Allocate memory for mutex and other data
+	//Allocate memory for rwlock and other data
 	pthread_rwlock_t *rwlock = malloc(sizeof(pthread_rwlock_t));
 	struct m_data *data_c = malloc(sizeof(struct m_data));
 	struct m_data *data_o = malloc(sizeof(struct m_data));
 	struct m_data *data_count = malloc(sizeof(struct m_data));
 
-	//Initialize mutex
+	//Initialize rwlock
 	int check;
 	check = pthread_rwlock_init(rwlock, NULL);
 	if (check < 0)
@@ -145,13 +145,13 @@ void use_rwlock(struct intervals *irvs)
 	//Main cycle
 	while (!done)
 	{
-		//Lock mutex
+		//Lock rwlock
 		pthread_rwlock_rdlock(rwlock);
 
 		//Print alphabet
 		printf("%.26s\n", alphabet);
 		
-		//Unlock mutex
+		//Unlock rwlock
 		pthread_rwlock_unlock(rwlock);
 
 		usleep(irvs->time_p);
