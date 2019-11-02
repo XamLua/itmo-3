@@ -14,6 +14,8 @@
 
 #define PERMISSIONS 0666
 
+#define BUF_SIZE 1000
+
 #include <sys/types.h>
 #include <time.h>
 #include <signal.h>

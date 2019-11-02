@@ -14,11 +14,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/loadavg.h>
 #include <string.h>
 
 extern int errno;
 
-int done = 0;
+static int done = 0;
 
 int main(int argc, char const *argv[])
 {
@@ -27,7 +28,7 @@ int main(int argc, char const *argv[])
 		use_shared_memory();
 	else
 	{
-		int mode = (int) *argv[1];
+		int mode = getopt(argc, argv, "sqm");
 
 		switch(mode)
 		{
@@ -82,7 +83,7 @@ int use_shared_memory()
 
 	printf("Server start is successful\n");
 
-	//Unblock semaphore
+	//Unlock semaphore
 	semctl(semid, 0, SETVAL, 0);
 	
 	//Main cycle
@@ -109,7 +110,7 @@ int use_shared_memory()
 
 
 	//Free resources
-	if (shmdt(data) < 0)
+	if (shmdt((void*)data) < 0)
 		crit_err(errno);
 
 	if (shmctl(shmid, IPC_RMID, 0) < 0)
@@ -146,15 +147,16 @@ int use_message_queue()
 	while(!done)
 	{
 		sleep(1);
+
+		//Delete last message if exist
+		msgrcv(mqid, (void*) m_data, sizeof(struct mq_data), 0, IPC_NOWAIT);
+
 		//Update message info
 		m_data->msg_data.t_work = time(NULL) - m_data->msg_data.t_start;
 		getloadavg(m_data->msg_data.load, 3);
 
-		//Delete last message if exist
-		msgrcv(mqid, 0, sizeof(struct mq_data), MSG_TYPE_SERVER_INFO, IPC_NOWAIT);
-
 		//Send new message to queue
-		msgsnd(mqid, m_data, sizeof(struct mq_data), 0);
+		msgsnd(mqid, (void*) m_data, sizeof(struct mq_data), 0);
 
 	}
 
@@ -181,7 +183,7 @@ int use_posix_smo()
 		crit_err(errno);
 
 	//Use mmap to map pso to memory
-	struct s_data *data = mmap(NULL, sizeof(struct s_data), PROT_READ | PROT_WRITE,
+	struct s_data *data = (struct s_data*) mmap(NULL, sizeof(struct s_data), PROT_READ | PROT_WRITE,
 								MAP_SHARED, fd, 0);
 
 	if (data == MAP_FAILED)
@@ -220,7 +222,7 @@ int use_posix_smo()
 	}
 
 	//Free resources
-	if(munmap(data, sizeof(struct s_data)) < 0)
+	if(munmap((void*)data, sizeof(struct s_data)) < 0)
 		crit_err(errno);
 
 	if(close(fd) < 0)
@@ -244,5 +246,5 @@ void crit_err(int errnum)
 void handle_sigint(int sig)
 {
 	done = 1;
-	printf("Server interrupted with '%s' signal\n", sys_siglist[sig]);
+	printf("Server interrupted with '%s' signal\n", strsignal(sig));
 }

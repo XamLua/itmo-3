@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <string.h>
 
-int inrpt = 0;
+static int inrpt = 0;
 
 int main(int argc, char const *argv[])
 {
@@ -24,7 +24,7 @@ int main(int argc, char const *argv[])
 		use_shared_memory();
 	else
 	{
-		int mode = (int) *argv[1];
+		int mode = getopt(argc, argv, "sqm");
 
 		switch(mode)
 		{
@@ -83,7 +83,7 @@ int use_shared_memory()
 	semctl(semid, 0, GETVAL, 1);
 
 	//Free resources
-	if (shmdt(data) < 0)
+	if (shmdt((void*)data) < 0)
 		crit_err(errno);
 
 	return 1;
@@ -102,7 +102,7 @@ int use_message_queue()
 		crit_err(errno);
 
 	//Recieve message
-	msgrcv(mqid, m_data, sizeof(struct mq_data), MSG_TYPE_SERVER_INFO, 0);
+	msgrcv(mqid, (void*) m_data, sizeof(struct mq_data), MSG_TYPE_SERVER_INFO, 0);
 
 	print_server_data(&(m_data->msg_data));
 
@@ -119,7 +119,7 @@ int use_posix_smo()
 		crit_err(errno);
 
 	//Use mmap to map pso to memory
-	struct s_data *data = mmap(NULL, sizeof(struct s_data), PROT_READ,
+	struct s_data *data = (struct s_data*) mmap(NULL, sizeof(struct s_data), PROT_READ,
 								MAP_SHARED, fd, 0);
 
 	if (data == MAP_FAILED)
@@ -140,7 +140,7 @@ int use_posix_smo()
 		crit_err(errno);
 
 	//Free resources
-	if(munmap(data, sizeof(struct s_data)) < 0)
+	if(munmap((void*)data, sizeof(struct s_data)) < 0)
 		crit_err(errno);
 
 	if(close(fd) < 0)
@@ -155,7 +155,7 @@ int use_posix_smo()
 void handle_sigint(int sig)
 {
 	inrpt = 1;
-	printf("Client interrupted with %s\n", sys_siglist[sig]);
+	printf("Client interrupted with %s\n", strsignal(sig));
 }
 
 void crit_err(int errnum)
@@ -168,9 +168,9 @@ void print_server_data(struct s_data* data)
 {
 	printf("Server stats:\n");
 
-	printf("Server process id: %d\n", data->pid);
-	printf("Server user id: %d\n", data->uid);
-	printf("Server group id: %d\n", data->gid);
+	printf("Server process id: %lu\n", (unsigned long) data->pid);
+	printf("Server user id: %lu\n", (unsigned long) data->uid);
+	printf("Server group id: %lu\n", (unsigned long) data->gid);
 	printf("Seconds from start: %ld\n", data->t_work);
 	printf("Average Load for 1 minute: %f\n", data->load[0]);
 	printf("Average Load for 5 minute: %f\n", data->load[1]);

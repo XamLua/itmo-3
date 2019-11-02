@@ -1,7 +1,7 @@
 #ifndef __ALPH__
 #define __ALPH__
 
-#define BUF_SIZE 26
+#define ALPH_BUF_SIZE 26
 
 #define SEM_ID_C 313
 #define SEM_ID_O 626

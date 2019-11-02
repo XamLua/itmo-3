@@ -18,6 +18,8 @@
 
 static int done = 0;
 
+extern int errno;
+
 static char* alphabet;
 
 int main(int argc, char * const *argv)
@@ -25,8 +27,8 @@ int main(int argc, char * const *argv)
 	signal(SIGINT, handle_sigint);
 
 	//Init the alphabet
-	alphabet = malloc(sizeof(char) * BUF_SIZE);
-	for (int i = 0; i < BUF_SIZE; ++i)
+	alphabet = malloc(sizeof(char) * ALPH_BUF_SIZE);
+	for (int i = 0; i < ALPH_BUF_SIZE; ++i)
 		alphabet[i] = 97 + i;
 
 	if (argc < 2)
@@ -220,7 +222,7 @@ void *count_upcl(void *s)
 		//Lock
 		pthread_rwlock_rdlock((pthread_rwlock_t*) data->lock);
 
-		for (int i = 0; i < BUF_SIZE; ++i)
+		for (int i = 0; i < ALPH_BUF_SIZE; ++i)
 			if (alphabet[i] < 91)
 				count++;
 
@@ -617,7 +619,7 @@ void *invert_order_unnamed(void *sem)
 
 void invert_case(char* alphabet)
 {
-	for (int i = 0; i < BUF_SIZE; ++i)
+	for (int i = 0; i < ALPH_BUF_SIZE; ++i)
 	{
 		if (alphabet[i] < 96)
 			alphabet[i] += 32;
@@ -631,11 +633,11 @@ void invert_order(char* alphabet)
 {
 	char temp;
 
-	for (int i = 0; i < BUF_SIZE/2; ++i)
+	for (int i = 0; i < ALPH_BUF_SIZE/2; ++i)
 	{
 		temp = alphabet[i];
-		alphabet[i] = alphabet[BUF_SIZE-1 - i];
-		alphabet[BUF_SIZE-1 - i] = temp;	
+		alphabet[i] = alphabet[ALPH_BUF_SIZE-1 - i];
+		alphabet[ALPH_BUF_SIZE-1 - i] = temp;	
 	}
 
 	return;
@@ -650,5 +652,5 @@ void crit_err(int errnum)
 void handle_sigint(int sig)
 {
 	done = 1;
-	printf("Program interrupted with '%s' signal\n", sys_siglist[sig]);
+	printf("Program interrupted with '%s' signal\n", strsignal(sig));
 }

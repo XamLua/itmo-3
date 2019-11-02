@@ -47,6 +47,7 @@ int main()
 	sigaction(SIGUSR1, &usr1_action, NULL);
 	sigaction(SIGUSR2, &usr2_action, NULL);
 
+	//Main cycle
 	while(1)
 	{
 		sleep(1);
